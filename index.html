@@ -102,6 +102,14 @@ h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
 .bar{height:6px;background:rgba(0,0,0,.35);border-radius:3px;overflow:hidden;margin-top:4px}
 .bar i{display:block;height:100%;background:var(--chalk);transition:width .3s}
 .bar.hp i{background:var(--chalk)} .bar.mp i{background:var(--blue)} .bar.eg i{background:var(--red)}
+/* 敵は必ず1列に並べる（4体以上は小さめに） */
+.enemies{flex-wrap:nowrap}
+.en{flex:0 1 150px;min-width:0}
+.en .nm,.en .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.enemies.many{gap:4px}
+.enemies.many .en{padding:6px 2px}
+.enemies.many .en .gl{width:56px;height:56px;font-size:26px}
+.enemies.many .en .nm{font-size:11px;letter-spacing:-.03em}
 .en.dead{opacity:0;transition:opacity .6s;pointer-events:none}
 .st{font-family:var(--ui);font-size:10px;color:var(--pink);min-height:12px}
 .shake{animation:shake .35s}

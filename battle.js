@@ -35,7 +35,7 @@ function startBattle(ids,opt={}){
 
 function buildBattle(){
   const bt=$('#battle'); bt.innerHTML='';
-  const en=h('div','enemies'); en.id='enemies';
+  const en=h('div','enemies'+(B.en.length>=4?' many':'')); en.id='enemies';
   B.en.forEach((e,i)=>{ const c=h('div','en'+(e.boss?' boss':''));
     c.dataset.i=i; c.innerHTML=`<div class="gl" style="color:${e.c}">${esc(e.g)}</div><div class="nm">${esc(e.n)}</div><div class="sub">${esc(e.sub)}</div><div class="bar hp"><i></i></div><div class="st"></div>`;
     en.appendChild(c); });
