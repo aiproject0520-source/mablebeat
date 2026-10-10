@@ -1,7 +1,7 @@
 // オフラインでも遊べるようにファイルをキャッシュする。更新したら VERSION を上げる
-const VERSION = 'marblebeat-v1';
+const VERSION = 'marblebeat-v2';
 const FILES = ['./','index.html','units.js','story1.js','story2.js','engine.js','battle.js','manifest.json',
-  'icons/icon-180.png','icons/icon-192.png','icons/icon-512.png','icons/icon-512-maskable.png'];
+  'icon-180.png','icon-192.png','icon-512.png','icon-512-maskable.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
