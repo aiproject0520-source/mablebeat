@@ -309,14 +309,24 @@ function command(m){
       b('こうげき',()=>target('enemy',t=>resolve({who:m,type:'skill',sk:PDEF[m.id].atk,target:t}),top));
       b('スキル',skills); b('アイテム',items);
       b('ぼうぎょ',()=>resolve({who:m,type:'guard'}));
-      const ex=SK[exOf(m)]; b(m.eg>=100?'★EX':`EX ${m.eg}%`,()=>useSk(exOf(m)),'r',m.eg<100);
+      b(m.eg>=100?'★EX':`EX ${m.eg}%`,exInfo,'r');
       b('にげる',()=>resolve({who:m,type:'flee'}),'',!B.canFlee);
       cmd.appendChild(g);
     };
-    const useSk=id=>{ const sk=SK[id]; if(['enemy','ally','dead'].includes(sk.tg)) target(sk.tg,t=>resolve({who:m,type:'skill',sk:id,target:t}),skills); else resolve({who:m,type:'skill',sk:id}); };
+    const useSk=id=>{ const sk=SK[id]; if(['enemy','ally','dead'].includes(sk.tg)) target(sk.tg,t=>resolve({who:m,type:'skill',sk:id,target:t}),sk.ex?exInfo:skills); else resolve({who:m,type:'skill',sk:id}); };
     const skills=()=>{ $('#battle').classList.add('menu');
       cmd.innerHTML=`<div class="cmdhead"><span>スキル</span><span>正気 ${m.mp}</span></div>`; const l=h('div','list');
       skillsOf(m).forEach(id=>{ const sk=SK[id]; const x=h('button','btn',`<span>${esc(sk.n)}<br><small>${esc(sk.d||'')}</small></span><small>正気${sk.mp||0}</small>`); if(m.mp<(sk.mp||0)) x.disabled=true; x.onclick=()=>{SFX.sel(); useSk(id);}; l.appendChild(x); });
+      const back=h('button','btn','もどる'); back.onclick=top; l.appendChild(back); cmd.appendChild(l);
+    };
+    // EX技の詳細（たまっていなくても中身は見られる。100%のときだけ使える）
+    const exInfo=()=>{ $('#battle').classList.remove('menu');
+      const id=exOf(m), sk=SK[id], ready=m.eg>=100;
+      cmd.innerHTML=`<div class="cmdhead"><span>EX技</span><span style="color:var(--red)">EX ${m.eg}%</span></div>`;
+      const l=h('div','list');
+      l.appendChild(h('div','exinfo',`<div class="exn">★ ${esc(sk.n)}</div><div class="exd">${esc((sk.d||'').replace(/^EX：/,''))}</div>${ready?'':'<div class="exw">EXゲージが100%になると使える</div>'}`));
+      const use=h('button','btn r',`<span>使う</span><small>EX 100%</small>`); if(!ready) use.disabled=true;
+      use.onclick=()=>{ SFX.sel(); useSk(id); }; l.appendChild(use);
       const back=h('button','btn','もどる'); back.onclick=top; l.appendChild(back); cmd.appendChild(l);
     };
     const items=()=>{ $('#battle').classList.add('menu');

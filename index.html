@@ -130,6 +130,15 @@ h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
 #battle.menu .en .sub,#battle.menu .st{display:none}
 #battle.menu .party{display:none}
 .cmdwrap{flex-shrink:0}
+/* スキル・アイテム一覧：画面の残りの高さいっぱいを使い、その中だけでスクロールする */
+#battle.menu .log{flex-shrink:0}
+#battle.menu .cmdwrap{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:6px}
+#battle.menu .cmdhead{flex-shrink:0}
+#battle.menu .list{flex:1 1 auto;min-height:0;max-height:none;padding-bottom:16px}
+.exinfo{border:2px solid var(--red);border-radius:7px;padding:10px 12px;font-family:var(--ui)}
+.exinfo .exn{font-size:16px;color:var(--red)}
+.exinfo .exd{font-size:14px;margin-top:4px;line-height:1.5}
+.exinfo .exw{font-size:12px;color:var(--dim);margin-top:6px}
 .log .q.old{color:var(--dim);font-size:13px}
 .log .sys{color:var(--chalk)}
 .log .tapnext{font-family:var(--ui);font-size:11px;color:var(--yellow);text-align:right;animation:blink 1s infinite}
