@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d3a2f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="marble beat">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>marble beat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Klee+One:wght@400;600&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;height:100%}
+*,*::before,*::after{box-sizing:border-box}
+img{max-width:100%}
+/* 黒板の世界：深い緑の黒板、白チョーク、黄チョーク=操作、赤チョーク=えぐさ、青チョーク=正気。単一テーマ（夜の教室） */
+:root{
+  --board:#1d3a2f; --board2:#254a3b; --board3:#2f5a49; --wood:#6e4c2e; --wood2:#4f3520;
+  --chalk:#efeee4; --dim:#a7b8aa; --yellow:#f2d35b; --red:#ff7b6a; --blue:#8ecbe9; --pink:#f3a6c8;
+  --ui:"DotGothic16","Hiragino Kaku Gothic ProN","Noto Sans JP",monospace;
+  --hand:"Klee One","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--wood2);color:var(--chalk);font-family:var(--hand);margin:0;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit}
+.app{position:relative;max-width:480px;height:100%;margin:0 auto;display:flex;flex-direction:column;
+  background:
+   radial-gradient(ellipse at 20% 10%,rgba(255,255,255,.05),transparent 40%),
+   radial-gradient(ellipse at 80% 70%,rgba(255,255,255,.04),transparent 45%),
+   repeating-linear-gradient(115deg,rgba(255,255,255,.012) 0 2px,transparent 2px 7px),
+   var(--board);
+  border-inline:6px solid var(--wood);box-shadow:inset 0 0 60px rgba(0,0,0,.45);overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:14px 16px}
+.ui{font-family:var(--ui)}
+h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
+.chalk-line{height:2px;background:linear-gradient(90deg,transparent,rgba(239,238,228,.5) 15%,rgba(239,238,228,.35) 85%,transparent);border:0;margin:8px 0}
+.btn{appearance:none;border:2px solid rgba(239,238,228,.75);background:rgba(0,0,0,.15);border-radius:6px 9px 5px 8px;padding:12px 12px;font-family:var(--ui);font-size:16px;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:48px}
+.btn:active{transform:translateY(1px);background:rgba(242,211,91,.12)}
+.btn:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.btn.y{border-color:var(--yellow);color:var(--yellow)}
+.btn.r{border-color:var(--red);color:var(--red)}
+.btn[disabled]{opacity:.35;pointer-events:none}
+.btn small{font-size:12px;color:var(--dim)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid2 .btn{flex-direction:column;align-items:flex-start;gap:2px;justify-content:center}
+.tag{font-family:var(--ui);font-size:11px;letter-spacing:.08em;color:var(--dim)}
+.money{font-family:var(--ui);color:var(--yellow);font-variant-numeric:tabular-nums}
+
+/* タイトル */
+#title{justify-content:center;align-items:center;text-align:center;gap:18px}
+#title .logo{font-family:var(--ui);font-size:clamp(44px,13vw,64px);line-height:1;letter-spacing:.02em;color:var(--chalk);text-shadow:0 0 1px #fff,2px 2px 0 rgba(0,0,0,.25);transform:rotate(-3deg)}
+#title .logo b{color:var(--red);font-weight:400}
+#title .gauge{font-family:var(--ui);font-size:13px;color:var(--dim);border:1px dashed rgba(239,238,228,.4);padding:8px 12px;line-height:1.7;max-width:300px}
+#title .menu{display:flex;flex-direction:column;gap:10px;width:min(280px,100%)}
+#title .copy{font-size:11px;color:var(--dim);font-family:var(--ui)}
+
+/* ハブ */
+.hubhead{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
+.hubhead h2{font-size:20px}
+.hubbody{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-block:10px;min-height:0}
+.story-btn{border-color:var(--yellow);color:var(--chalk);flex-direction:column;align-items:flex-start;gap:4px;padding:14px}
+.story-btn .big{font-size:20px;color:var(--yellow)}
+.mini-party{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.mpc{border:1px solid rgba(239,238,228,.35);border-radius:6px;padding:6px;font-family:var(--ui);font-size:11px;min-width:0}
+.mpc .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* シーン */
+#scene{padding:0;justify-content:flex-end}
+.stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0}
+.place{position:absolute;top:12px;left:16px;font-family:var(--ui);font-size:13px;color:var(--yellow);border-bottom:1px solid var(--yellow);padding-bottom:2px}
+.chtitle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
+.chtitle .a{font-family:var(--ui);color:var(--yellow);font-size:15px;letter-spacing:.2em}
+.chtitle .b{font-family:var(--ui);font-size:clamp(28px,9vw,40px)}
+.portrait{width:150px;height:150px;border-radius:50%;border:3px solid currentColor;display:flex;align-items:center;justify-content:center;font-family:var(--ui);font-size:72px;filter:drop-shadow(0 0 1px currentColor);transition:transform .2s}
+.portrait.pop{animation:pop .25s}
+@keyframes pop{0%{transform:scale(.85)}100%{transform:scale(1)}}
+.dialog{position:relative;margin:0 12px 14px;border:2px solid rgba(239,238,228,.85);border-radius:8px 12px 7px 10px;background:rgba(10,25,19,.55);padding:16px 16px 26px;min-height:140px;cursor:pointer}
+.dialog .who{position:absolute;top:-14px;left:12px;background:var(--board);padding:0 8px;font-family:var(--ui);font-size:15px;color:var(--yellow)}
+.dialog .txt{font-size:18px;line-height:1.65;white-space:pre-wrap;word-break:break-all}
+.dialog .txt.nar{color:var(--dim);font-size:16px}
+.dialog .next{position:absolute;right:12px;bottom:6px;font-family:var(--ui);font-size:12px;color:var(--dim);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+.choices{display:flex;flex-direction:column;gap:8px;margin:0 12px 10px}
+.skip{position:absolute;top:8px;right:12px;font-size:12px;padding:6px 10px;min-height:0;border-width:1px}
+
+/* バトル */
+#battle{padding:10px 12px;gap:8px}
+.enemies{flex:1;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;min-height:150px;align-content:center;align-items:center;padding-top:14px}
+.en{position:relative;width:min(150px,31%);min-width:96px;text-align:center;border-radius:8px;padding:6px 4px;cursor:default;border:2px solid transparent}
+.en.pick{cursor:pointer;border-color:var(--yellow);animation:blink 1.1s infinite}
+.en .gl{width:72px;height:72px;margin:0 auto;border-radius:50%;border:3px solid currentColor;display:flex;align-items:center;justify-content:center;font-family:var(--ui);font-size:34px}
+.en.boss .gl{width:96px;height:96px;font-size:46px;border-width:4px}
+.en .nm{font-family:var(--ui);font-size:12px;margin-top:4px;line-height:1.3;color:var(--chalk)}
+.en .sub{font-size:10px;color:var(--dim)}
+.bar{height:6px;background:rgba(0,0,0,.35);border-radius:3px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--chalk);transition:width .3s}
+.bar.hp i{background:var(--chalk)} .bar.mp i{background:var(--blue)} .bar.eg i{background:var(--red)}
+.en.dead{opacity:0;transition:opacity .6s;pointer-events:none}
+.st{font-family:var(--ui);font-size:10px;color:var(--pink);min-height:12px}
+.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.flashred{animation:fr .4s}
+@keyframes fr{0%{box-shadow:inset 0 0 0 999px rgba(255,123,106,.35)}100%{box-shadow:none}}
+.pop-num{position:absolute;left:50%;top:20px;transform:translateX(-50%);font-family:var(--ui);font-size:22px;color:var(--yellow);pointer-events:none;animation:up .9s forwards;text-shadow:0 1px 0 #000}
+.pop-num.heal{color:#9be7a8} .pop-num.miss{color:var(--dim);font-size:16px}
+@keyframes up{to{transform:translate(-50%,-34px);opacity:0}}
+.log{border:2px solid rgba(239,238,228,.7);border-radius:8px;background:rgba(10,25,19,.55);padding:10px 12px;min-height:88px;font-size:15px;line-height:1.55;cursor:pointer;flex-shrink:0}
+.log .q{color:var(--chalk)} .log .s{color:var(--dim);font-size:13px;font-family:var(--ui)}
+.party{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pc{position:relative;border:2px solid rgba(239,238,228,.35);border-radius:7px;padding:6px 8px;font-family:var(--ui);font-size:12px;min-width:0}
+.pc.act{border-color:var(--yellow)}
+.pc.pick{border-color:var(--yellow);cursor:pointer;animation:blink 1.1s infinite}
+.pc.down{opacity:.45}
+.pc .row{display:flex;justify-content:space-between;gap:4px;font-variant-numeric:tabular-nums}
+.pc .nm{font-size:14px}
+.cmdwrap{min-height:150px}
+.cmd{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;flex-shrink:0}
+.cmd .btn{justify-content:center;text-align:center;font-size:15px;padding:8px 6px}
+.cmdhead{font-family:var(--ui);font-size:13px;color:var(--yellow);display:flex;justify-content:space-between}
+.list{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow-y:auto}
+.list .btn{font-size:14px;min-height:42px;padding:8px 10px}
+
+/* オーバーレイ */
+.ov{position:absolute;inset:0;background:rgba(14,30,24,.94);display:flex;flex-direction:column;padding:16px;gap:10px;z-index:20}
+.ov .body{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:0}
+.card{border:1px solid rgba(239,238,228,.4);border-radius:8px;padding:10px 12px}
+.card h3{font-size:16px;color:var(--yellow)}
+.card p{margin:6px 0 0;font-size:14px;line-height:1.6}
+.card .q{font-size:13px;color:var(--dim);margin-top:4px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-family:var(--ui);font-size:13px;margin-top:6px;font-variant-numeric:tabular-nums}
+.toast{position:absolute;left:50%;top:18px;transform:translateX(-50%);background:var(--board3);border:1px solid var(--yellow);color:var(--yellow);font-family:var(--ui);font-size:13px;padding:8px 12px;border-radius:6px;z-index:40;white-space:nowrap;animation:up 2.4s forwards;animation-delay:1.2s}
+.redflash{position:absolute;inset:0;background:var(--red);opacity:0;pointer-events:none;z-index:30}
+.redflash.on{animation:rf .6s}
+@keyframes rf{0%{opacity:.55}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <section class="screen" id="title">
+    <div class="tag">北高エグミリティ計測課　推奨：スマホ縦持ち</div>
+    <div class="logo">marble<br><b>beat</b></div>
+    <div class="gauge">自社AIの不足により、人力による<br>エグミリティ計測が義務化されました。<br>評価基準：1.えぐさ 2.えぐさ 3.えぐさ 4.えぐさ</div>
+    <div class="menu">
+      <button class="btn y" id="btnNew">はじめから <small>NEW</small></button>
+      <button class="btn" id="btnCont">つづきから <small id="contInfo"></small></button>
+    </div>
+    <div class="copy">(c)Egmlity(c)　登場人物はすべてフィクションです</div>
+  </section>
+  <section class="screen" id="hub" hidden></section>
+  <section class="screen" id="scene" hidden></section>
+  <section class="screen" id="battle" hidden></section>
+  <div class="redflash" id="redflash"></div>
+</div>
+
+<script src="units.js"></script>
+<script src="story1.js"></script>
+<script src="story2.js"></script>
+<script src="engine.js"></script>
+<script src="battle.js"></script>
+<script>boot();
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+</script>
+
+</body>
+</html>

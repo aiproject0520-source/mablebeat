@@ -1,0 +1,17 @@
+{
+  "name": "marble beat",
+  "short_name": "marble beat",
+  "description": "北高の教師たちがえぐさ調節機の暴走でイカれていくターン制RPG",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1d3a2f",
+  "theme_color": "#1d3a2f",
+  "lang": "ja",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
