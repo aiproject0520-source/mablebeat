@@ -12,16 +12,20 @@ function mkEnemy(id,lvOv,psize){
 }
 // 戦闘用ステータス
 function base(c,k){ return c.enemy? c[k] : stat(c,k); }
-function bs(c,k){ const b=c._b.buffs[k]; return base(c,k)*(b?b.v:1); }
+// バフ・デバフは「段」として重なる。1つのステータスにつき上げ下げそれぞれ最大3段、各段が自分の残りターンを持つ
+const MAXSTACK=3;
+function layers(c,k){ return (c._b&&c._b.buffs[k])||[]; }
+function mult(c,k){ const m=layers(c,k).reduce((p,l)=>p*l.v,1); return Math.max(.15,Math.min(3,m)); }
+function bs(c,k){ return base(c,k)*mult(c,k); }
 function maxHp(c){ return c.enemy?c.max:stat(c,'hp'); }
 function nm(c){ return c.enemy?c.n:PDEF[c.id].n; }
 function alive(list){ return list.filter(c=>c.hp>0); }
-function critRate(c){ const b=c._b.buffs.crit; return .07+(b?b.v:0); }
+function critRate(c){ return .07+Math.min(.6,layers(c,'crit').reduce((p,l)=>p+l.v,0)); }
 
 function startBattle(ids,opt={}){
   return new Promise(async resolve=>{
     const psize=S.party.length;
-    S.party.forEach(m=>{ m._b={buffs:{},st:{}}; });
+    S.party.forEach(m=>{ m._b={buffs:{},st:{},cd:{}}; });
     B={en:ids.map(id=>mkEnemy(id,opt.lv,psize)),boss:!!opt.boss,guest:opt.guest||null,canFlee:!!opt.canFlee&&!opt.boss,resolve,done:false};
     // 同名の敵に A/B を付ける
     const cnt={}; B.en.forEach(e=>{cnt[e.n]=(cnt[e.n]||0)+1;}); const seen={};
@@ -61,7 +65,9 @@ function refresh(active){
 }
 const STN={confuse:'混乱',seal:'封印',sleep:'睡眠',taunt:'挑発',evade:'回避'};
 function stText(c){ if(!c._b) return ''; const a=[]; for(const k in c._b.st) if(c._b.st[k]>0) a.push(STN[k]);
-  for(const k in c._b.buffs){ const b=c._b.buffs[k]; if(k==='crit') a.push('会心↑'); else a.push(({atk:'攻',def:'防',spd:'速'})[k]+(b.v>1?'↑':'↓')); }
+  for(const k in c._b.buffs){ const L=c._b.buffs[k]; const up=L.filter(l=>k==='crit'||l.v>1).length, dn=L.length-up;
+    const nmk=({atk:'攻',def:'防',spd:'速',crit:'会心'})[k];
+    if(up) a.push(nmk+'↑'+(up>1?up:'')); if(dn) a.push(nmk+'↓'+(dn>1?dn:'')); }
   return a.join(' '); }
 
 let logTap=null;
@@ -105,10 +111,23 @@ async function damage(att,tgt,pow,opt={}){
   refresh();
   await msg(`${nm(tgt)} に ${v} のダメージ！`,crit?'会心の一撃！':'',crit?800:560);
   await afterHit(tgt);
+  // シャドーイング：CHOKUへの攻撃は1/4で、受けたダメージをそのまま攻撃した仲間に返す（CHOKUが倒れたら返さない）
+  if(tgt.enemy && tgt.d.shadow && !att.enemy && PDEF[att.id] && tgt.hp>0 && att.hp>0 && !B.done && Math.random()<.25){
+    await msg(`${tgt.n}「${pick(tgt.d.shadow)}」`,'シャドーイング！ 受けたダメージをそのまま返してきた',1400);
+    att.hp=Math.max(0,att.hp-v); SFX.hit(); shake(att); popNum(att,v); refresh();
+    await msg(`${nm(att)} に ${v} のダメージ！`,'',700); await afterHit(att); checkEnd();
+  }
   return v;
 }
 async function afterHit(t){
   if(t.enemy){
+    if(t.hp<=0 && t.d.phase2 && !t.phased){ t.phased=1; await phaseUp(t); return; }
+    if(t.hp<=0 && t.d.fusenRevive){ const fs=alive(B.en).filter(x=>x.d.fusen);
+      if(fs.length){ const sum=fs.reduce((a,x)=>a+x.hp,0);
+        fs.forEach(x=>{ x.hp=0; S.dex[x.id]=1; });
+        t.hp=sum*2; t.max=Math.max(t.max,t.hp); redFlash(); refresh();
+        await msg(`${t.n}「付箋、貼っておいてよかったです。」`,`残っていた付箋のHP ${sum} の2倍、${t.hp} を吸収して立ち上がった！`,1800);
+        return; } }
     if(t.hp<=0){ await enemyDown(t); return; }
     if(!t.lowDone && t.d.low && t.hp<t.max*.35){ t.lowDone=true; const L=t.d.low;
       await msg(`${t.n}「${L.l}」`,'',1500);
@@ -117,6 +136,16 @@ async function afterHit(t){
       else if(L.buff){ t.atk=Math.round(t.atk*L.buff); await msg(`${t.n} の攻撃力が上がった！`,'',700); }
     }
   } else if(t.hp<=0){ refresh(); await msg(`${nm(t)} は倒れた……`,'',800); }
+}
+// 第一形態のHPが0になったら第二形態へ。HP全回復＋最大HP2倍、変身直後にΩを撃つ
+async function phaseUp(t){
+  redFlash(); refresh();
+  for(const l of (t.d.phaseLines||[])) await msg(`${t.n}「${l}」`,'',1600);
+  const idx=B.en.indexOf(t); const ne=mkEnemy(t.d.phase2,null,S.party.length);
+  ne.max=ne.hp=t.max*2; ne.queue=['omega','summon']; S.dex[t.id]=1;
+  B.en[idx]=ne; buildBattle(); SFX.boom();
+  await msg(`${t.n} は ${ne.n} に進化した！`,'HPが全回復し、最大HPが2倍になった',1500);
+  await enemyAct(ne); checkEnd();
 }
 async function enemyDown(e){
   refresh(); S.dex[e.id]=1;
@@ -128,9 +157,15 @@ async function heal(t,ratio){
   const v=Math.round(maxHp(t)*ratio); t.hp=Math.min(maxHp(t),t.hp+v); SFX.heal(); popNum(t,'+'+v,'heal'); refresh();
   await msg(`${nm(t)} のHPが ${v} 回復した`,'',520);
 }
-function addBuff(t,k,v,turns){ const cur=t._b.buffs[k];
-  if(k==='crit'){ t._b.buffs.crit={v,t:turns}; return; }
-  t._b.buffs[k]={v:cur?Math.max(.3,Math.min(2.5,cur.v*v)):v,t:turns}; }
+// 段を1つ積む。同じ向きが最大なら、残りターンが一番少ない段を入れ替える。積んだ後の同じ向きの段数を返す
+function addBuff(t,k,v,turns){
+  const L=t._b.buffs[k]||(t._b.buffs[k]=[]);
+  const up=k==='crit'||v>1, same=L.filter(l=>(k==='crit'||l.v>1)===up);
+  if(same.length>=MAXSTACK){ const old=same.reduce((a,b)=>a.t<=b.t?a:b); L.splice(L.indexOf(old),1); }
+  L.push({v,t:turns});
+  return L.filter(l=>(k==='crit'||l.v>1)===up).length;
+}
+function stackNote(n){ return n>=MAXSTACK?`（${n}段・最大）`:n>1?`（${n}段）`:''; }
 async function addSt(t,k,ch,turns){
   if(t.hp<=0) return false;
   if(t.enemy&&t.boss) ch*=.5;
@@ -170,8 +205,8 @@ async function useEffect(user,eff,target,label){
     if(gambleWin){ await damage(user,t,eff.gamble.win); if(checkEnd()) return; }
     if(eff.heal && t.hp>0) await heal(t,eff.heal);
     if(eff.mpheal){ t.mp=Math.min(stat(t,'mp'),t.mp+eff.mpheal); refresh(); await msg(`${nm(t)} の正気が ${eff.mpheal} 回復した`,'',520); }
-    if(eff.buff){ for(const k in eff.buff) addBuff(t,k,eff.buff[k],eff.t||3); refresh(); await msg(`${nm(t)} の${Object.keys(eff.buff).map(k=>({atk:'攻撃',def:'防御',spd:'素早さ',crit:'会心率'})[k]).join('・')}が上がった！`,'',600); }
-    if(eff.deb && t.hp>0){ for(const k in eff.deb) addBuff(t,k,eff.deb[k],eff.t||3); refresh(); await msg(`${nm(t)} の${Object.keys(eff.deb).map(k=>({atk:'攻撃',def:'防御'})[k]).join('・')}が下がった！`,'',600); }
+    if(eff.buff){ let n=1; for(const k in eff.buff) n=Math.max(n,addBuff(t,k,eff.buff[k],eff.t||3)); refresh(); await msg(`${nm(t)} の${Object.keys(eff.buff).map(k=>({atk:'攻撃',def:'防御',spd:'素早さ',crit:'会心率'})[k]).join('・')}が上がった！${stackNote(n)}`,'',600); }
+    if(eff.deb && t.hp>0){ let n=1; for(const k in eff.deb) n=Math.max(n,addBuff(t,k,eff.deb[k],eff.t||3)); refresh(); await msg(`${nm(t)} の${Object.keys(eff.deb).map(k=>({atk:'攻撃',def:'防御'})[k]).join('・')}が下がった！${stackNote(n)}`,'',600); }
     if(eff.st && t.hp>0) await addSt(t,eff.st.k,eff.st.ch,eff.st.t);
     if(eff.evade){ t._b.st.evade=eff.evade; refresh(); await msg(`${nm(t)} はどろろんの構えをとった`,'',600); }
     if(eff.taunt){ t._b.st.taunt=eff.taunt; refresh(); }
@@ -181,7 +216,7 @@ async function useEffect(user,eff,target,label){
 }
 
 // ---------- 敵の行動 ----------
-function pickAct(e){ const acts=e.d.acts, tot=acts.reduce((s,a)=>s+(a.w||1),0); let r=Math.random()*tot; for(const a of acts){ r-=(a.w||1); if(r<=0) return a; } return acts[0]; }
+function pickAct(e){ const acts=e.d.acts.filter(a=>!a.cond||a.cond(e)), tot=acts.reduce((s,a)=>s+(a.w||1),0); let r=Math.random()*tot; for(const a of acts){ r-=(a.w||1); if(r<=0) return a; } return acts[0]; }
 function pickAlly(){ const a=alive(S.party); const t=a.filter(m=>m._b.st.taunt>0); if(t.length&&Math.random()<.75) return t[0]; return pick(a); }
 function quote(e,l){ return /^[（『]/.test(l)? `${e.n}：${l}` : `${e.n}「${l}」`; }
 async function enemyAct(e){
@@ -190,17 +225,35 @@ async function enemyAct(e){
   if(e._b.st.seal>0){ await msg(`${e.n} は封じられていて動けない`,'',600); return; }
   if(e._b.st.sleep>0){ await msg(`${e.n} は眠っている`,'',600); return; }
   if(e._b.st.confuse>0 && Math.random()<.5){ const t=pick(alive(B.en)); await msg(`${e.n} はわけがわからなくなっている！`,'',600); await damage(e,t,.9); return; }
-  const a=pickAct(e);
+  const a=(e.queue&&e.queue.length)? e.d.special[e.queue.shift()] : pickAct(e);
   await msg(quote(e,a.l),'',a.l.length>40?1700:1100);
   switch(a.k){
     case 'atk': await damage(e,pickAlly(),a.p); break;
     case 'all': for(const t of alive(S.party)){ await damage(e,t,a.p*.8); if(checkEnd()) return; } break;
     case 'multi': for(let i=0;i<a.h;i++){ const t=pickAlly(); if(!t) break; await damage(e,t,a.p); if(checkEnd()) return; } break;
     case 'heal': { const tg=a.ally?alive(B.en):[e]; for(const t of tg) await heal(t,a.p); break; }
-    case 'buff': { const tg=a.ally?alive(B.en):[e]; tg.forEach(t=>addBuff(t,a.stat,a.v,3)); refresh(); await msg(`${a.ally?'敵全体':e.n} の${({atk:'攻撃',def:'防御',spd:'素早さ'})[a.stat]}が上がった！`,'',600); break; }
-    case 'debuff': for(const t of alive(S.party)) addBuff(t,a.stat,a.v,3); refresh(); await msg(`味方全員の${({atk:'攻撃',def:'防御'})[a.stat]}が下がった！`,'',650); break;
+    case 'buff': { const tg=a.ally?alive(B.en):[e]; let n=1; tg.forEach(t=>{n=Math.max(n,addBuff(t,a.stat,a.v,3));}); refresh(); await msg(`${a.ally?'敵全体':e.n} の${({atk:'攻撃',def:'防御',spd:'素早さ'})[a.stat]}が上がった！${stackNote(n)}`,'',600); break; }
+    case 'debuff': { let n=1; for(const t of alive(S.party)) n=Math.max(n,addBuff(t,a.stat,a.v,a.t||3)); refresh(); await msg(`味方全員の${({atk:'攻撃',def:'防御'})[a.stat]}が下がった！${stackNote(n)}`,'',650); break; }
     case 'st': { const tg=a.all?alive(S.party):[pickAlly()]; for(const t of tg) await addSt(t,a.st,a.ch,a.t); break; }
     case 'skip': break;
+    case 'allst': for(const t of alive(S.party)){ await damage(e,t,a.p*.8); if(checkEnd()) return; }
+      for(const t of alive(S.party)) await addSt(t,a.st,a.ch,a.t); break;
+    case 'setone': for(const t of alive(S.party)){ t.hp=1; shake(t); popNum(t,'HP1'); }
+      redFlash(); refresh(); await msg('味方全員のHPが 1 になった！','',1300); break;
+    case 'summon': {
+      const old=B.en.filter(x=>!x.d.fusen);
+      const fa=mkEnemy('fusenL',null,S.party.length), fb=mkEnemy('fusenL',null,S.party.length);
+      fa.n='lifeの付箋A'; fb.n='lifeの付箋B'; B.en=[fa,...old,fb]; e.lastSummon=B.turn;
+      buildBattle(); SFX.boom();
+      await msg('「lifeという単語に貼られた無数の付箋」が両側に現れた！','先に付箋を倒さないと、残りHPの2倍がCHOKUに流れ込む',1600); break; }
+    case 'tof': { const t=pickAlly(); if(!t) break;
+      await msg(`${e.n} は ${nm(t)} に問題を出した。……T or F？`,'',1100);
+      if(Math.random()<.5){ t.hp=0; shake(t); popNum(t,'F'); redFlash(); refresh();
+        await msg(`${e.n}「僕に楯突いたこと自体。false(間違い)だったんですよ。知ってました？」`,'',1800); await afterHit(t); }
+      else { popNum(t,'T','miss'); await msg(`${e.n}「T……。運がいいですね。」`,'',1200); }
+      break; }
+    case 'buffboss': { const bo=alive(B.en).find(x=>x.d.shadow); if(!bo) break;
+      const n=addBuff(bo,a.stat,a.v,a.t||3); refresh(); await msg(`${bo.n} の攻撃が上がった！${stackNote(n)}`,'',700); break; }
     case 'ko': e.hp=0; refresh(); S.dex[e.id]=1; await msg(`${e.n} は勝手に倒れた……`,S.party.some(m=>m.id==='doron')?'Mr.どろろん「あっ！ 死んでるよこれ！ なかなか見れないよこれ！」':'',1200); break;
     case 'selfhit': { const v=Math.round(e.max*.12); e.hp=Math.max(1,e.hp-v); shake(e); popNum(e,v); refresh(); await msg(`${e.n} は自分を殴った！ ${v} のダメージ`,'',700); await afterHit(e); break; }
     case 'steal': { const v=Math.min(S.gold,Math.round(e.lv*3+rnd(0,10))); S.gold-=v; await msg(`${v}円 持っていかれた！`,'',700); break; }
@@ -245,7 +298,9 @@ async function finish(){
 
 // ---------- メインループ ----------
 async function loop(){
+  B.turn=0;
   while(!B.done){
+    B.turn++;
     const plan=[];
     for(const m of S.party){
       if(m.hp<=0) continue;
@@ -277,7 +332,8 @@ async function loop(){
     // ターン終了
     [...S.party,...B.en].forEach(c=>{ if(!c._b) return;
       for(const k in c._b.st){ if(c._b.st[k]>0) c._b.st[k]--; if(c._b.st[k]<=0) delete c._b.st[k]; }
-      for(const k in c._b.buffs){ c._b.buffs[k].t--; if(c._b.buffs[k].t<=0) delete c._b.buffs[k]; } });
+      for(const k in c._b.buffs){ const L=c._b.buffs[k].filter(l=>--l.t>0); if(L.length) c._b.buffs[k]=L; else delete c._b.buffs[k]; }
+      if(c._b.cd) for(const k in c._b.cd){ c._b.cd[k]--; if(c._b.cd[k]<=0) delete c._b.cd[k]; } });
     refresh();
   }
   await finish();
@@ -292,7 +348,7 @@ async function doPlan(p){
   if(p.type==='guard'){ m.eg=Math.min(100,m.eg+8); await msg(`${nm(m)} は身を守っている`,'',500); return; }
   if(p.type==='skill'){ const sk=SK[p.sk];
     if(sk.ex){ if(m.eg<100) return; m.eg=0; redFlash(); }
-    else { if(m.mp<(sk.mp||0)){ await msg(`${nm(m)} は正気が足りない！`,'',600); return; } m.mp-=(sk.mp||0); }
+    else { if(m._b.cd[p.sk]>0){ await msg(`${sk.n} はまだ使えない`,'',600); return; } if(m.mp<(sk.mp||0)){ await msg(`${nm(m)} は正気が足りない！`,'',600); return; } m.mp-=(sk.mp||0); if(sk.cd) m._b.cd[p.sk]=sk.cd+1; }
     refresh();
     const label = p.sk===PDEF[m.id].atk? '' : (sk.ex?`★EX ${sk.n}`:sk.n);
     if(p.sk===PDEF[m.id].atk) await msg(`${nm(m)} の${sk.n}！`,'',450);
@@ -321,7 +377,7 @@ function command(m){
     const useSk=id=>{ const sk=SK[id]; if(['enemy','ally','dead'].includes(sk.tg)) target(sk.tg,t=>resolve({who:m,type:'skill',sk:id,target:t}),sk.ex?exInfo:skills); else resolve({who:m,type:'skill',sk:id}); };
     const skills=()=>{ $('#battle').classList.add('menu');
       cmd.innerHTML=`<div class="cmdhead"><span>スキル</span><span>正気 ${m.mp}</span></div>`; const l=h('div','list');
-      skillsOf(m).forEach(id=>{ const sk=SK[id]; const x=h('button','btn',`<span>${esc(sk.n)}<br><small>${esc(sk.d||'')}</small></span><small>正気${sk.mp||0}</small>`); if(m.mp<(sk.mp||0)) x.disabled=true; x.onclick=()=>{SFX.sel(); useSk(id);}; l.appendChild(x); });
+      skillsOf(m).forEach(id=>{ const sk=SK[id]; const cd=m._b.cd[id]||0; const x=h('button','btn',`<span>${esc(sk.n)}<br><small>${esc(sk.d||'')}</small></span><small>${cd>0?`あと${cd}ターン`:`正気${sk.mp||0}`}</small>`); if(m.mp<(sk.mp||0)||cd>0) x.disabled=true; x.onclick=()=>{SFX.sel(); useSk(id);}; l.appendChild(x); });
       const back=h('button','btn','もどる'); back.onclick=top; l.appendChild(back); cmd.appendChild(l);
     };
     // EX技の詳細（たまっていなくても中身は見られる。100%のときだけ使える）

@@ -149,6 +149,29 @@ async function runStory(){
   showHub();
 }
 
+// 限定コンテンツ（何度でも挑戦できる。初回撃破のみ特別報酬）
+async function playSteps(steps){
+  for(const st of steps){
+    if(Array.isArray(st)){ await say(st[0],st[1]); continue; }
+    if(st.t==='title') await chapterTitle(st.a,st.b);
+    else if(st.t==='place') $('#place').textContent=st.v;
+    else if(st.t==='fx'){ if(!skipping) redFlash(); }
+  }
+}
+async function runExtra(){
+  show('scene'); buildScene(); skipping=false; $('#place').textContent='';
+  await playSteps(EXTRA.pre);
+  skipping=false;
+  const r=await startBattle(['choku1'],{boss:true});
+  if(r==='lose') return gameOver();
+  show('scene'); buildScene(); skipping=false;
+  await playSteps(EXTRA.post);
+  const first=!S.extraClear; S.extraClear=(S.extraClear||0)+1;
+  if(first){ S.gold+=3000; addItem('kokumin',3); addItem('protein',3);
+    await say('','初回撃破ボーナス！\n3000円・国民栄誉賞×3・プロテイン飲み過ぎなんです×3 を手に入れた。'); }
+  fullHeal(); save(); showHub();
+}
+
 async function endingChoice(){
   show('scene'); buildScene(); skipping=false;
   $('#place').textContent='徳川の蔵';
@@ -191,6 +214,11 @@ function showHub(){
   if(S.ch>8){ sb.innerHTML=`<span class="big">もう一度ダイヤルを回す</span><small>エンディング：${esc(S.ending||'')}</small>`; }
   else { const plv=partyLv(); sb.innerHTML=`<span class="big">${S.step>0?'つづきを進める':'物語をはじめる'}</span><small>${esc(ch.a)}「${esc(ch.b)}」　推奨Lv${ch.lv}　${plv<ch.lv-1?'<span style="color:var(--red)">レベル不足かも</span>':''}</small>`; }
   sb.onclick=()=>{ SFX.sel(); runStory(); };
+  // 全クリ後の限定コンテンツ
+  let xb=null;
+  if(S.ch>8){ xb=h('button','btn story-btn extra-btn');
+    xb.innerHTML=`<span class="tag" style="color:var(--red)">限定コンテンツ</span><span class="big">${esc(EXTRA.b)}</span><small>限定ボス【真のエグさを知る者】CHOKU　推奨Lv40${S.extraClear?`　<span style="color:var(--yellow)">撃破済み ×${S.extraClear}</span>`:''}</small>`;
+    xb.onclick=()=>{ SFX.sel(); runExtra(); }; }
   const g=h('div','grid2');
   const add=(label,sub,fn,cls)=>{ const b=h('button','btn'+(cls?' '+cls:''),`${label}<small>${sub}</small>`); b.onclick=()=>{SFX.sel(); fn();}; g.appendChild(b); };
   add('見回り','戦闘でLv上げ',patrol);
@@ -199,7 +227,7 @@ function showHub(){
   add('カラオケ','20円',karaoke);
   add('パーティ','えぐさを見る',partyView);
   add('図鑑',`${Object.keys(S.dex).length}/${Object.keys(E).length}`,dexView);
-  body.append(sb,g);
+  body.append(sb); if(xb) body.appendChild(xb); body.appendChild(g);
   const opt=h('button','btn','設定 <small>音・速さ・データ</small>'); opt.onclick=settings; body.appendChild(opt);
   hub.append(head,h('hr','chalk-line'),mp,body);
 }
@@ -280,7 +308,7 @@ function partyView(){
   overlay('パーティ',body=>{
     body.appendChild(h('p','tag','エグミリティ評価基準：1.えぐさ 2.えぐさ 3.えぐさ 4.えぐさ'));
     S.party.forEach(m=>{ const d=PDEF[m.id];
-      const sk=skillsOf(m).map(id=>`<p>・${esc(SK[id].n)}（正気${SK[id].mp||0}）<span class="q">${esc(SK[id].d||'')}</span></p>`).join('');
+      const sk=skillsOf(m).map(id=>`<p>・${esc(SK[id].n)}（正気${SK[id].mp||0}${SK[id].cd?`・間隔${SK[id].cd}ターン`:''}）<span class="q">${esc(SK[id].d||'')}</span></p>`).join('');
       body.appendChild(h('div','card',`<h3>${esc(d.n)}　Lv${m.lv}</h3><div class="tag">${esc(d.role)}　次のLvまで ${nextExp(m.lv)-m.exp}</div>
        <div class="stats"><span>えぐさ①(体力) ${m.hp}/${stat(m,'hp')}</span><span>正気 ${m.mp}/${stat(m,'mp')}</span><span>えぐさ②(攻撃) ${stat(m,'atk')}</span><span>えぐさ③(防御) ${stat(m,'def')}</span><span>えぐさ④(素早さ) ${stat(m,'spd')}</span><span>EXゲージ ${m.eg}%</span></div>
        ${sk}<p>★EX：${esc(SK[exOf(m)].n)}<span class="q">　${esc(SK[exOf(m)].d)}</span></p><p class="q">${esc(d.bio)}</p>`));
