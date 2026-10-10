@@ -92,7 +92,7 @@ h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
 
 /* バトル */
 #battle{padding:10px 12px;gap:8px}
-.enemies{flex:1;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;min-height:150px;align-content:center;align-items:center;padding-top:14px}
+.enemies{flex:1 1 auto;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;min-height:96px;align-content:center;align-items:center;padding-top:14px}
 .en{position:relative;width:min(150px,31%);min-width:96px;text-align:center;border-radius:8px;padding:6px 4px;cursor:default;border:2px solid transparent}
 .en.pick{cursor:pointer;border-color:var(--yellow);animation:blink 1.1s infinite}
 .en .gl{width:72px;height:72px;margin:0 auto;border-radius:50%;border:3px solid currentColor;display:flex;align-items:center;justify-content:center;font-family:var(--ui);font-size:34px}
@@ -111,7 +111,7 @@ h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
 .pop-num{position:absolute;left:50%;top:20px;transform:translateX(-50%);font-family:var(--ui);font-size:22px;color:var(--yellow);pointer-events:none;animation:up .9s forwards;text-shadow:0 1px 0 #000}
 .pop-num.heal{color:#9be7a8} .pop-num.miss{color:var(--dim);font-size:16px}
 @keyframes up{to{transform:translate(-50%,-34px);opacity:0}}
-.log{border:2px solid rgba(239,238,228,.7);border-radius:8px;background:rgba(10,25,19,.55);padding:10px 12px;min-height:88px;font-size:15px;line-height:1.55;cursor:pointer;flex-shrink:0}
+.log{border:2px solid rgba(239,238,228,.7);border-radius:8px;background:rgba(10,25,19,.55);padding:10px 12px;min-height:96px;font-size:15px;line-height:1.55;cursor:pointer;flex-shrink:0}
 .log .q{color:var(--chalk)} .log .s{color:var(--dim);font-size:13px;font-family:var(--ui)}
 .party{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .pc{position:relative;border:2px solid rgba(239,238,228,.35);border-radius:7px;padding:6px 8px;font-family:var(--ui);font-size:12px;min-width:0}
@@ -124,7 +124,17 @@ h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
 .cmd{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;flex-shrink:0}
 .cmd .btn{justify-content:center;text-align:center;font-size:15px;padding:8px 6px}
 .cmdhead{font-family:var(--ui);font-size:13px;color:var(--yellow);display:flex;justify-content:space-between}
-.list{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow-y:auto}
+.list{display:flex;flex-direction:column;gap:6px;max-height:45vh;max-height:45dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding-bottom:8px}
+#battle.menu .enemies{flex:0 0 auto;min-height:0;padding-top:4px}
+#battle.menu .en .gl{width:44px;height:44px;font-size:22px}
+#battle.menu .en .sub,#battle.menu .st{display:none}
+#battle.menu .party{display:none}
+.cmdwrap{flex-shrink:0}
+.log .q.old{color:var(--dim);font-size:13px}
+.log .sys{color:var(--chalk)}
+.log .tapnext{font-family:var(--ui);font-size:11px;color:var(--yellow);text-align:right;animation:blink 1s infinite}
+textarea.code{width:100%;min-height:64px;background:rgba(0,0,0,.25);color:var(--chalk);border:1px solid rgba(239,238,228,.4);border-radius:6px;padding:8px;font-family:var(--ui);font-size:11px;margin-top:8px;user-select:text;-webkit-user-select:text}
+.card .btn{width:100%;margin-top:8px}
 .list .btn{font-size:14px;min-height:42px;padding:8px 10px}
 
 /* オーバーレイ */

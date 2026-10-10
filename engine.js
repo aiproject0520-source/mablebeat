@@ -5,7 +5,9 @@ const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const rnd = (a,b)=>a+Math.random()*(b-a);
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
-let FAST=false, SOUND=true, AC=null;
+let FAST=false, SOUND=true, TAPMODE=true, AC=null;
+try{ const o=JSON.parse(localStorage.getItem('marblebeat_opt')||'{}'); if('fast' in o)FAST=o.fast; if('sound' in o)SOUND=o.sound; if('tap' in o)TAPMODE=o.tap; }catch(e){}
+function saveOpt(){ try{ localStorage.setItem('marblebeat_opt',JSON.stringify({fast:FAST,sound:SOUND,tap:TAPMODE})); }catch(e){} }
 
 function beep(f=880,d=.06,type='square',v=.04){
   if(!SOUND) return;
@@ -301,13 +303,23 @@ function dexView(){
 function settings(){
   overlay('設定',(body)=>{
     const draw=()=>{ body.innerHTML='';
-      const s=h('button','btn',`効果音 <small>${SOUND?'ON':'OFF'}</small>`); s.onclick=()=>{SOUND=!SOUND; draw();};
-      const f=h('button','btn',`文字と戦闘の速さ <small>${FAST?'はやい':'ふつう'}</small>`); f.onclick=()=>{FAST=!FAST; draw();};
+      const s=h('button','btn',`効果音 <small>${SOUND?'ON':'OFF'}</small>`); s.onclick=()=>{SOUND=!SOUND; saveOpt(); draw();};
+      const f=h('button','btn',`文字と戦闘の速さ <small>${FAST?'はやい':'ふつう'}</small>`); f.onclick=()=>{FAST=!FAST; saveOpt(); draw();};
+      const tp=h('button','btn',`戦闘のセリフ送り <small>${TAPMODE?'タップで進む':'自動で進む'}</small>`); tp.onclick=()=>{TAPMODE=!TAPMODE; saveOpt(); draw();};
       const t=h('button','btn','タイトルへ戻る'); t.onclick=()=>{ document.querySelector('.ov')?.remove(); boot(); };
       const r=h('button','btn r','セーブデータを消す'); let armed=false;
       r.onclick=()=>{ if(!armed){ armed=true; r.innerHTML='本当に消す？ もう一度押すと消えます'; return; }
         try{localStorage.removeItem(SAVEKEY)}catch(e){} document.querySelector('.ov')?.remove(); boot(); };
-      body.append(s,f,t,r,h('p','tag','進行はこの端末のブラウザに自動保存されます。'));
+      // セーブの書き出し・読み込み
+      const code=(()=>{ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(S)))); }catch(e){ return ''; } })();
+      const card=h('div','card','<h3>セーブの引っ越し</h3><p class="q">機種変更やホーム画面アプリの入れ直しの前に、このコードをメモ帳などに保存しておくと進行を戻せます。</p>');
+      const out=h('textarea','code'); out.id='saveOut'; out.readOnly=true; out.value=code;
+      const cp=h('button','btn y','コードをコピー'); cp.onclick=()=>{ navigator.clipboard.writeText(code).then(()=>{cp.textContent='コピーしました';}).catch(()=>{ out.select(); cp.textContent='選択したのでコピーしてください'; }); };
+      const inp=h('textarea','code'); inp.id='saveIn'; inp.placeholder='保存しておいたコードを貼り付け';
+      const ld=h('button','btn','コードから読み込む'); const note=h('p','tag','');
+      ld.onclick=()=>{ try{ const d=JSON.parse(decodeURIComponent(escape(atob(inp.value.trim())))); if(!d||!d.party) throw 0; S=d; save(); note.textContent='読み込みました。'; setTimeout(()=>{ document.querySelector('.ov')?.remove(); showHub(); },600); }catch(e){ note.textContent='コードが正しくありません。最後まで貼り付けたか確認してください。'; } };
+      card.append(out,cp,inp,ld,note);
+      body.append(s,f,tp,card,t,r,h('p','tag','進行はこの端末のブラウザに自動保存されます。'));
     }; draw();
   });
 }

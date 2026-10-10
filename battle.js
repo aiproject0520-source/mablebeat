@@ -24,7 +24,7 @@ function startBattle(ids,opt={}){
     // 同名の敵に A/B を付ける
     const cnt={}; B.en.forEach(e=>{cnt[e.n]=(cnt[e.n]||0)+1;}); const seen={};
     B.en.forEach(e=>{ if(cnt[e.n]>1){ seen[e.n]=(seen[e.n]||0)+1; e.n=e.n+'ABCD'[seen[e.n]-1]; } });
-    show('battle'); buildBattle();
+    curQuote=null; show('battle'); buildBattle();
     const first=B.en[0];
     await msg(B.en.length>1?`${B.en.map(e=>e.n).join('、')} があらわれた！`:`${first.n} があらわれた！`,'',700);
     if(first.d.i) await msg(`${first.n}「${first.d.i}」`,'',1400);
@@ -63,9 +63,21 @@ function stText(c){ if(!c._b) return ''; const a=[]; for(const k in c._b.st) if(
   return a.join(' '); }
 
 let logTap=null;
+// セリフ（「」や：を含む行）はログ上段に残し、ダメージなどは下段に出す
+let curQuote=null;
+function isSpeech(q){ return q.includes('「')||q.includes('：'); }
 function msg(q,s='',ms=900){
   const log=$('#log'); if(!log) return Promise.resolve();
-  log.innerHTML=`<div class="q">${esc(q)}</div>${s?`<div class="s">${esc(s)}</div>`:''}`;
+  const speech=isSpeech(q);
+  if(speech){
+    curQuote=q;
+    log.innerHTML=`<div class="q">${esc(q)}</div>${s?`<div class="s">${esc(s)}</div>`:''}${TAPMODE?'<div class="tapnext">▼ タップで次へ</div>':''}`;
+    if(TAPMODE) return new Promise(r=>{ logTap=()=>{logTap=null;r();}; });
+    ms=Math.max(2200,q.length*95);
+  } else {
+    log.innerHTML=`${curQuote?`<div class="q old">${esc(curQuote)}</div>`:''}<div class="sys">${esc(q)}</div>${s?`<div class="s">${esc(s)}</div>`:''}`;
+    ms=Math.max(ms*1.5,900);
+  }
   return new Promise(r=>{ const t=setTimeout(()=>{logTap=null;r();},FAST?ms*.35:ms); logTap=()=>{clearTimeout(t);logTap=null;r();}; });
 }
 function elOf(c){ if(c.enemy) return document.querySelector(`.en[data-i="${B.en.indexOf(c)}"]`); return document.querySelector(`.pc[data-i="${S.party.indexOf(c)}"]`); }
@@ -169,8 +181,9 @@ async function useEffect(user,eff,target,label){
 // ---------- 敵の行動 ----------
 function pickAct(e){ const acts=e.d.acts, tot=acts.reduce((s,a)=>s+(a.w||1),0); let r=Math.random()*tot; for(const a of acts){ r-=(a.w||1); if(r<=0) return a; } return acts[0]; }
 function pickAlly(){ const a=alive(S.party); const t=a.filter(m=>m._b.st.taunt>0); if(t.length&&Math.random()<.75) return t[0]; return pick(a); }
-function quote(e,l){ return /^[（『]/.test(l)? `${e.n}${l}` : `${e.n}「${l}」`; }
+function quote(e,l){ return /^[（『]/.test(l)? `${e.n}：${l}` : `${e.n}「${l}」`; }
 async function enemyAct(e){
+  curQuote=null;
   if(!alive(S.party).length) return;
   if(e._b.st.seal>0){ await msg(`${e.n} は封じられていて動けない`,'',600); return; }
   if(e._b.st.sleep>0){ await msg(`${e.n} は眠っている`,'',600); return; }
@@ -246,7 +259,7 @@ async function loop(){
       plan.push(c);
     }
     if(B.done) break;
-    $('#cmd').innerHTML=''; refresh();
+    $('#cmd').innerHTML=''; $('#battle').classList.remove('menu'); refresh();
     const order=[...plan.map(p=>({c:p.who,p,s:bs(p.who,'spd')*rnd(.8,1.2)})),...alive(B.en).map(e=>({c:e,s:bs(e,'spd')*rnd(.8,1.2)}))].sort((a,b)=>b.s-a.s);
     for(const o of order){
       if(B.done||checkEnd()) break;
@@ -268,7 +281,7 @@ async function loop(){
 }
 
 async function doPlan(p){
-  const m=p.who;
+  const m=p.who; curQuote=null;
   if(p.type==='none'){ await msg(`${nm(m)} は${m._b.st.sleep>0?'眠っている……「あとじゅっぷん…」':'封じられて動けない'}`,'',650); return; }
   if(p.type==='confused'){ await msg(`${nm(m)}「1足す1とは？ おっほーん」`,'混乱して味方を攻撃した！',900); await damage(m,pick(alive(S.party)),.7); return; }
   if(p.type==='guard'){ m.eg=Math.min(100,m.eg+8); await msg(`${nm(m)} は身を守っている`,'',500); return; }
@@ -289,7 +302,7 @@ function command(m){
   return new Promise(resolve=>{
     refresh(m);
     const cmd=$('#cmd');
-    const top=()=>{
+    const top=()=>{ $('#battle').classList.remove('menu');
       cmd.innerHTML=`<div class="cmdhead"><span>${esc(PDEF[m.id].n)} のこうどう</span><span>正気 ${m.mp}/${stat(m,'mp')}</span></div>`;
       const g=h('div','cmd');
       const b=(l,fn,cls,dis)=>{ const x=h('button','btn'+(cls?' '+cls:''),l); if(dis) x.disabled=true; x.onclick=()=>{SFX.sel(); fn();}; g.appendChild(x); };
@@ -301,12 +314,12 @@ function command(m){
       cmd.appendChild(g);
     };
     const useSk=id=>{ const sk=SK[id]; if(['enemy','ally','dead'].includes(sk.tg)) target(sk.tg,t=>resolve({who:m,type:'skill',sk:id,target:t}),skills); else resolve({who:m,type:'skill',sk:id}); };
-    const skills=()=>{
+    const skills=()=>{ $('#battle').classList.add('menu');
       cmd.innerHTML=`<div class="cmdhead"><span>スキル</span><span>正気 ${m.mp}</span></div>`; const l=h('div','list');
       skillsOf(m).forEach(id=>{ const sk=SK[id]; const x=h('button','btn',`<span>${esc(sk.n)}<br><small>${esc(sk.d||'')}</small></span><small>正気${sk.mp||0}</small>`); if(m.mp<(sk.mp||0)) x.disabled=true; x.onclick=()=>{SFX.sel(); useSk(id);}; l.appendChild(x); });
       const back=h('button','btn','もどる'); back.onclick=top; l.appendChild(back); cmd.appendChild(l);
     };
-    const items=()=>{
+    const items=()=>{ $('#battle').classList.add('menu');
       cmd.innerHTML=`<div class="cmdhead"><span>アイテム</span><span class="money">${S.gold}円</span></div>`; const l=h('div','list');
       const have=Object.entries(S.items).filter(([k,n])=>n>0);
       if(!have.length) l.appendChild(h('p','tag','なにも持っていない'));
@@ -314,7 +327,7 @@ function command(m){
         x.onclick=()=>{ SFX.sel(); if(['enemy','ally','dead'].includes(it.tg)) target(it.tg,t=>resolve({who:m,type:'item',it:id,target:t}),items); else resolve({who:m,type:'item',it:id}); }; l.appendChild(x); });
       const back=h('button','btn','もどる'); back.onclick=top; l.appendChild(back); cmd.appendChild(l);
     };
-    const target=(kind,done,back)=>{
+    const target=(kind,done,back)=>{ $('#battle').classList.remove('menu');
       const cands = kind==='enemy'? alive(B.en) : kind==='dead'? S.party.filter(x=>x.hp<=0) : alive(S.party);
       if(kind==='dead'&&!cands.length){ cmd.innerHTML='<div class="cmdhead"><span>倒れている仲間がいない</span></div>'; const x=h('button','btn','もどる'); x.onclick=back; cmd.appendChild(x); return; }
       if(cands.length===1&&kind==='enemy'){ done(cands[0]); return; }
