@@ -3,10 +3,12 @@ let B=null;
 function refStats(L){ return {HP:60+9*(L-1),ATK:12+3*(L-1),DEF:8+2*(L-1),SPD:10+2*(L-1)}; }
 function mkEnemy(id,lvOv,psize){
   const d=E[id], L=lvOv||d.lv, r=refStats(L), m=Object.assign({hp:1,atk:1,def:1,spd:1,exp:1},d.m);
-  const def=Math.round(r.DEF*.8*m.def), atk=Math.round((.15*r.HP+.6*r.DEF)*m.atk);
-  const hp=Math.round(Math.max(8,r.ATK-.6*def)*3*m.hp*(.55+.15*psize)*(d.boss?.8:1));
+  // 後半ほど敵を強く（Lv9から1Lvごとに攻撃とHPが+2.5%。Lv30で約1.5倍）
+  const late=1+Math.max(0,L-8)*.025;
+  const def=Math.round(r.DEF*.8*m.def), atk=Math.round((.15*r.HP+.6*r.DEF)*m.atk*late);
+  const hp=Math.round(Math.max(8,r.ATK-.6*def)*3*m.hp*(.55+.15*psize)*(d.boss?.8:1)*late);
   return {id,d,n:d.n,sub:d.sub,g:d.g,c:d.c,boss:!!d.boss,lv:L,hp,max:hp,atk,def,spd:Math.round(r.SPD*m.spd),
-    exp:Math.round((.8*L*L+6)*m.exp*(d.boss?5:1)),gold:Math.round((3+L*2)*(d.boss?5:1)),_b:{buffs:{},st:{}},lowDone:false,enemy:true};
+    exp:Math.round((.8*L*L+6)*m.exp*(d.boss?3.5:1)),gold:Math.round((3+L*2)*(d.boss?5:1)),_b:{buffs:{},st:{}},lowDone:false,enemy:true};
 }
 // 戦闘用ステータス
 function base(c,k){ return c.enemy? c[k] : stat(c,k); }
@@ -221,7 +223,7 @@ async function finish(){
   if(r==='lose'){ await msg('パーティは全滅した……','',1400); B.resolve('lose'); return; }
   // 勝利
   const eLv=B.en.reduce((s,e)=>s+e.lv,0)/B.en.length, pLv=S.party.reduce((s,m)=>s+m.lv,0)/S.party.length;
-  const mul=1+Math.max(0,eLv-pLv)*.35;
+  const mul=1+Math.max(0,eLv-pLv)*.2;
   const exp=Math.round(B.en.filter(e=>!e.fled).reduce((s,e)=>s+e.exp,0)*mul + B.en.filter(e=>e.fled).reduce((s,e)=>s+e.exp*.5,0));
   const gold=Math.round(B.en.reduce((s,e)=>s+e.gold,0)*rnd(.9,1.2));
   S.gold+=gold;
@@ -260,7 +262,8 @@ async function loop(){
     }
     if(B.done) break;
     $('#cmd').innerHTML=''; $('#battle').classList.remove('menu'); refresh();
-    const order=[...plan.map(p=>({c:p.who,p,s:bs(p.who,'spd')*rnd(.8,1.2)})),...alive(B.en).map(e=>({c:e,s:bs(e,'spd')*rnd(.8,1.2)}))].sort((a,b)=>b.s-a.s);
+    // バフ・デバフ・状態異常のスキルやアイテムは、素早さに関係なくターンの最初に行う
+    const order=[...plan.map(p=>({c:p.who,p,pri:isSupport(p)?1:0,s:bs(p.who,'spd')*rnd(.8,1.2)})),...alive(B.en).map(e=>({c:e,pri:0,s:bs(e,'spd')*rnd(.8,1.2)}))].sort((a,b)=>b.pri-a.pri||b.s-a.s);
     for(const o of order){
       if(B.done||checkEnd()) break;
       if(o.c.hp<=0) continue;
@@ -280,6 +283,8 @@ async function loop(){
   await finish();
 }
 
+function isSupport(p){ const e=p.type==='skill'?SK[p.sk]:p.type==='item'?IT[p.it]:null;
+  return !!(e&&(e.buff||e.deb||e.st||e.taunt||e.evade)); }
 async function doPlan(p){
   const m=p.who; curQuote=null;
   if(p.type==='none'){ await msg(`${nm(m)} は${m._b.st.sleep>0?'眠っている……「あとじゅっぷん…」':'封じられて動けない'}`,'',650); return; }
