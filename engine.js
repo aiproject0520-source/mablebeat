@@ -56,6 +56,8 @@ function boot(){
 }
 
 // ================= シーン =================
+// 場所名が「回想」で始まるあいだは、画面を白っぽい回想の見た目にする
+function setPlace(v){ const p=$('#place'); if(p) p.textContent=v; const sc=$('#scene'); if(sc) sc.classList.toggle('memory',/^回想/.test(v||'')); }
 let skipping=false;
 function buildScene(){
   const sc=$('#scene'); sc.innerHTML='';
@@ -119,13 +121,13 @@ async function runStory(){
   if(S.ch>8){ return endingChoice(); }
   const ch=CH[S.ch];
   show('scene'); buildScene(); skipping=false;
-  let place=''; $('#place').textContent='';
+  let place=''; setPlace('');
   for(let i=S.step;i<ch.s.length;i++){
     const st=ch.s[i];
     if(Array.isArray(st)){ await say(st[0],st[1]); continue; }
     switch(st.t){
       case 'title': await chapterTitle(st.a,st.b); break;
-      case 'place': place=st.v; $('#place').textContent=st.v; break;
+      case 'place': place=st.v; setPlace(st.v); break;
       case 'fx': if(!skipping) redFlash(); break;
       case 'join': { if(!S.party.find(m=>m.id===st.id)){ const m=mkMember(st.id,partyLv()); S.party.push(m);} SFX.lv(); break; }
       case 'learn': { const m=S.party.find(x=>x.id===st.id); if(m) m.exOv=st.ex; break; }
@@ -138,7 +140,7 @@ async function runStory(){
         skipping=false;
         const r = await startBattle(st.e,{boss:!!st.boss,guest:st.guest,story:true});
         if(r==='lose'){ S.step=S.chk; save(); return gameOver(); }
-        show('scene'); buildScene(); $('#place').textContent=place; S.step=i+1; save();
+        show('scene'); buildScene(); setPlace(place); S.step=i+1; save();
         break;
       }
     }
@@ -154,12 +156,12 @@ async function playSteps(steps){
   for(const st of steps){
     if(Array.isArray(st)){ await say(st[0],st[1]); continue; }
     if(st.t==='title') await chapterTitle(st.a,st.b);
-    else if(st.t==='place') $('#place').textContent=st.v;
+    else if(st.t==='place') setPlace(st.v);
     else if(st.t==='fx'){ if(!skipping) redFlash(); }
   }
 }
 async function runExtra(){
-  show('scene'); buildScene(); skipping=false; $('#place').textContent='';
+  show('scene'); buildScene(); skipping=false; setPlace('');
   await playSteps(EXTRA.pre);
   skipping=false;
   const r=await startBattle(['choku1'],{boss:true});
@@ -174,7 +176,7 @@ async function runExtra(){
 
 async function endingChoice(){
   show('scene'); buildScene(); skipping=false;
-  $('#place').textContent='徳川の蔵';
+  setPlace('徳川の蔵');
   await say('米津','さあ、回しなさい。ダイヤルをね。どこに合わせるかはね、えー、君たちが決めることなんですね。');
   const box=$('#choices');
   await sayNoWait('','えぐさ調節機のダイヤルを……');
@@ -196,7 +198,7 @@ async function endCard(k,v,id){
 
 async function gameOver(){
   show('scene'); buildScene(); skipping=false;
-  $('#place').textContent='ゲームオーバー';
+  setPlace('ゲームオーバー');
   await say('中神','今LPが１の人。まだまだ大逆転、狙っていって、いいんですよ？');
   await say('','パーティは保健室に運ばれた。');
   fullHeal(); S.gold=Math.floor(S.gold*0.8); save(); showHub();
