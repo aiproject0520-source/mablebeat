@@ -34,12 +34,14 @@ const SAVEKEY='marblebeat_v1';
 function newState(){ return {ch:0,step:0,chk:0,gold:50,items:{purin:2,natto:1},party:[mkMember('uesugi',1)],dex:{},ending:null,karaoke:0}; }
 function mkMember(id,lv){ const m={id,lv,exp:0,eg:0,exOv:null}; m.hp=stat(m,'hp'); m.mp=stat(m,'mp'); return m; }
 function stat(m,k){ const d=PDEF[m.id]; return Math.floor(d.base[k]+d.grow[k]*(m.lv-1)); }
-function skillsOf(m){ return PDEF[m.id].learn.filter(x=>x[0]<=m.lv).map(x=>x[1]); }
+function skillsOf(m){ return PDEF[m.id].learn.filter(x=>x[0]<=m.lv).map(x=>x[1]).concat(m.extra||[]); }
 function exOf(m){ return m.exOv||PDEF[m.id].ex; }
 function nextExp(lv){ return Math.round(3.2*lv*lv+24); }
 function partyLv(){ return Math.max(...S.party.map(m=>m.lv)); }
 function fullHeal(){ S.party.forEach(m=>{m.hp=stat(m,'hp'); m.mp=stat(m,'mp');}); }
-function save(){ try{ localStorage.setItem(SAVEKEY,JSON.stringify(S)); }catch(e){} }
+// コズミック編の戦闘中は S.party が入れ替わっているので、保存は本編のパーティで行う
+function save(){ try{ const d=S._main?Object.assign({},S,{party:S._main,_main:undefined}):S;
+  localStorage.setItem(SAVEKEY,JSON.stringify(d,(k,v)=>k==='_b'||k==='_guard'?undefined:v)); }catch(e){} }
 function loadSave(){ try{ const t=localStorage.getItem(SAVEKEY); return t?JSON.parse(t):null; }catch(e){ return null; } }
 function addItem(id,n){ S.items[id]=(S.items[id]||0)+n; }
 
@@ -237,6 +239,11 @@ function showHub(){
   if(S.ch>8){ xb=h('button','btn story-btn extra-btn');
     xb.innerHTML=`<span class="tag" style="color:var(--red)">限定コンテンツ</span><span class="big">${esc(EXTRA.b)}</span><small>限定ボス【真のエグさを知る者】CHOKU　推奨Lv40${S.extraClear?`　<span style="color:var(--yellow)">撃破済み ×${S.extraClear}</span>`:''}</small>`;
     xb.onclick=()=>{ SFX.sel(); runExtra(); }; }
+  let cb=null;
+  if(S.ch>8 && typeof COSMIC!=='undefined'){ const C=S.cosmic||{ep:0};
+    cb=h('button','btn story-btn cosmic-btn');
+    cb.innerHTML=`<span class="tag" style="color:var(--blue)">追加ストーリー</span><span class="big">${esc(COSMIC.title)}　${esc(COSMIC.sub)}</span><small>${C.ep>=COSMIC.ep.length?'全5話クリア':`第${C.ep+1}話 / 全5話　推奨Lv${COSMIC.lv[C.ep]}`}</small>`;
+    cb.onclick=()=>{ SFX.sel(); cosmicMenu(); }; }
   const g=h('div','grid2');
   const add=(label,sub,fn,cls)=>{ const b=h('button','btn'+(cls?' '+cls:''),`${label}<small>${sub}</small>`); b.onclick=()=>{SFX.sel(); fn();}; g.appendChild(b); };
   add('見回り','戦闘でLv上げ',patrol);
@@ -245,7 +252,7 @@ function showHub(){
   add('カラオケ','20円',karaoke);
   add('パーティ','えぐさを見る',partyView);
   add('図鑑',`${Object.keys(S.dex).length}/${Object.keys(E).length}`,dexView);
-  body.append(sb); if(xb) body.appendChild(xb); body.appendChild(g);
+  body.append(sb); if(xb) body.appendChild(xb); if(cb) body.appendChild(cb); body.appendChild(g);
   const opt=h('button','btn','設定 <small>音・速さ・データ</small>'); opt.onclick=settings; body.appendChild(opt);
   hub.append(head,h('hr','chalk-line'),mp,body);
 }

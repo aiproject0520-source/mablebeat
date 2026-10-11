@@ -188,6 +188,8 @@ textarea.code{width:100%;min-height:64px;background:rgba(0,0,0,.25);color:var(--
 .ov.confirm .body{flex:0 0 auto}
 .card.warn{border-color:var(--red);background:var(--board)}
 .card.warn h3{color:var(--red)}
+.cosmic-btn{border-color:var(--blue)!important;background:rgba(142,203,233,.08)}
+.cosmic-btn .big{color:var(--blue)!important}
 </style>
 
 </head>
@@ -214,6 +216,7 @@ textarea.code{width:100%;min-height:64px;background:rgba(0,0,0,.25);color:var(--
 <script src="story2.js"></script>
 <script src="engine.js"></script>
 <script src="battle.js"></script>
+<script src="cosmic.js"></script>
 <script>boot();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 </script>

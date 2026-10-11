@@ -102,6 +102,7 @@ async function damage(att,tgt,pow,opt={}){
   v = crit? v*1.5 : v-D*.6;
   v=Math.max(v,A*pow*.15);
   if(tgt._guard) v*=.5;
+  if(tgt.enemy && tgt.d.cut) v*=tgt.d.cut;
   v=Math.max(1,Math.round(v));
   tgt.hp=Math.max(0,tgt.hp-v);
   SFX.hit(); shake(tgt); popNum(tgt,v);
@@ -120,6 +121,10 @@ async function damage(att,tgt,pow,opt={}){
   return v;
 }
 async function afterHit(t){
+  if(t.enemy && t.d.endAt && !B.done && t.hp<t.max*t.d.endAt){
+    t.hp=0; t.fled=1; S.dex[t.id]=1; refresh(); redFlash();
+    if(t.d.endLine) await msg(t.d.endLine,'',1500);
+    B.done='win'; return; }
   if(t.enemy){
     if(t.hp<=0 && t.d.phase2 && !t.phased){ t.phased=1; await phaseUp(t); return; }
     if(t.hp<=0 && t.d.fusenRevive){ const fs=alive(B.en).filter(x=>x.d.fusen);
@@ -201,7 +206,8 @@ async function useEffect(user,eff,target,label){
   for(const t of tg){
     if(B.done) break;
     if(eff.revive && t.hp<=0){ t.hp=Math.round(maxHp(t)*eff.revive); SFX.heal(); refresh(); await msg(`${nm(t)} が復活した！`,'',700); if(eff.tg==='dead') continue; }
-    if(eff.dmg!=null){ const hits=eff.hits||1; for(let k=0;k<hits;k++){ if(t.hp<=0) break; const p=Array.isArray(eff.dmg)?rnd(eff.dmg[0],eff.dmg[1]):eff.dmg; await damage(user,t,p,{pierce:eff.pierce}); if(checkEnd()) return; } }
+    if(eff.dmg!=null){ const hits=eff.hits||1; const tagMul=eff.tag?(S.party.some(x=>x.id===eff.tag&&x.hp>0)?1:.5):1;
+      for(let k=0;k<hits;k++){ if(t.hp<=0||B.done) break; const p=(Array.isArray(eff.dmg)?rnd(eff.dmg[0],eff.dmg[1]):eff.dmg)*tagMul; await damage(user,t,p,{pierce:eff.pierce}); if(checkEnd()) return; } }
     if(gambleWin){ await damage(user,t,eff.gamble.win); if(checkEnd()) return; }
     if(eff.heal && t.hp>0) await heal(t,eff.heal);
     if(eff.mpheal){ t.mp=Math.min(stat(t,'mp'),t.mp+eff.mpheal); refresh(); await msg(`${nm(t)} の正気が ${eff.mpheal} 回復した`,'',520); }
@@ -246,13 +252,19 @@ async function enemyAct(e){
       fa.n='lifeの付箋A'; fb.n='lifeの付箋B'; B.en=[fa,...old,fb]; e.lastSummon=B.turn;
       buildBattle(); SFX.boom();
       await msg('「lifeという単語に貼られた無数の付箋」が両側に現れた！','先に付箋を倒さないと、残りHPの2倍がCHOKUに流れ込む',1600); break; }
+    case 'call': {
+      const now=alive(B.en); if(now.length>=(a.max||3)){ await msg(`……しかし誰も来なかった`,'',600); break; }
+      const id=pick(a.ids), ne=mkEnemy(id,null,S.party.length);
+      const same=B.en.filter(x=>x.id===id).length; if(same) ne.n=ne.n+'ABCDEFG'[same];
+      B.en=B.en.filter(x=>x.hp>0||x.boss); B.en.push(ne); buildBattle(); SFX.boom();
+      await msg(`${ne.n} が現れた！`,'',800); break; }
     case 'tof': { const t=pickAlly(); if(!t) break;
       await msg(`${e.n} は ${nm(t)} に問題を出した。……T or F？`,'',1100);
       if(Math.random()<.5){ t.hp=0; shake(t); popNum(t,'F'); redFlash(); refresh();
         await msg(`${e.n}「僕に楯突いたこと自体。false(間違い)だったんですよ。知ってました？」`,'',1800); await afterHit(t); }
       else { popNum(t,'T','miss'); await msg(`${e.n}「T……。運がいいですね。」`,'',1200); }
       break; }
-    case 'buffboss': { const bo=alive(B.en).find(x=>x.d.shadow); if(!bo) break;
+    case 'buffboss': { const bo=alive(B.en).find(x=>x.d.shadow)||alive(B.en).find(x=>x.boss); if(!bo) break;
       const n=addBuff(bo,a.stat,a.v,a.t||3); refresh(); await msg(`${bo.n} の攻撃が上がった！${stackNote(n)}`,'',700); break; }
     case 'ko': e.hp=0; refresh(); S.dex[e.id]=1; await msg(`${e.n} は勝手に倒れた……`,S.party.some(m=>m.id==='doron')?'Mr.どろろん「あっ！ 死んでるよこれ！ なかなか見れないよこれ！」':'',1200); break;
     case 'selfhit': { const v=Math.round(e.max*.12); e.hp=Math.max(1,e.hp-v); shake(e); popNum(e,v); refresh(); await msg(`${e.n} は自分を殴った！ ${v} のダメージ`,'',700); await afterHit(e); break; }
