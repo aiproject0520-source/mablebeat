@@ -50,9 +50,25 @@ function boot(){
   const saved = (hot&&hot.S) || loadSave();
   $('#btnCont').disabled=!saved;
   if(saved) $('#contInfo').textContent = (saved.ch>8?'クリア済':(CH[saved.ch]?CH[saved.ch].a:''))+' / Lv'+Math.max(...saved.party.map(m=>m.lv));
-  $('#btnNew').onclick=()=>{ SFX.sel(); S=newState(); save(); runStory(); };
+  const startNew=()=>{ S=newState(); save(); runStory(); };
+  $('#btnNew').onclick=()=>{ SFX.sel(); if(saved) confirmNew(saved,startNew); else startNew(); };
   $('#btnCont').onclick=()=>{ SFX.sel(); S=saved; showHub(); };
   show('title');
+}
+
+// セーブがあるときに「はじめから」を押したら、一度だけ確認する
+function confirmNew(saved,startNew){
+  const where=saved.ch>8?'すべての章をクリア':(CH[saved.ch]?CH[saved.ch].a+'「'+CH[saved.ch].b+'」':'');
+  const lv=Math.max(...saved.party.map(m=>m.lv));
+  const ov=h('div','ov confirm');
+  ov.innerHTML=`<div class="body"><div class="card warn"><h3>はじめからにしますか？</h3>
+    <p>今のセーブデータは消えて、元に戻せません。</p>
+    <p class="q">今のセーブ：${esc(where)}　Lv${lv}　${saved.gold}円${saved.extraClear?'　CHOKU撃破済み':''}</p>
+    <p class="q">残しておきたいときは「やめる」を押して、つづきから → 設定 →「セーブの引っ越し」でコードを保存してください。</p></div></div>`;
+  const row=h('div','grid2');
+  const no=h('button','btn y','やめる'); no.onclick=()=>{ SFX.sel(); ov.remove(); };
+  const yes=h('button','btn r','はじめからにする'); yes.onclick=()=>{ SFX.sel(); ov.remove(); startNew(); };
+  row.append(no,yes); ov.appendChild(row); $('#app').appendChild(ov); no.focus();
 }
 
 // ================= シーン =================
