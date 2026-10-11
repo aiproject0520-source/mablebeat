@@ -193,6 +193,7 @@ textarea.code{width:100%;min-height:64px;background:rgba(0,0,0,.25);color:var(--
 .card.warn h3{color:var(--red)}
 .cosmic-btn{border-color:var(--blue)!important;background:rgba(142,203,233,.08)}
 .cosmic-btn .big{color:var(--blue)!important}
+.updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:60;max-width:440px;width:calc(100% - 32px);background:var(--yellow);color:#1d3a2f;border:0;border-radius:8px;padding:12px 14px;font-family:var(--ui);font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer}
 </style>
 
 </head>
@@ -221,7 +222,23 @@ textarea.code{width:100%;min-height:64px;background:rgba(0,0,0,.25);color:var(--
 <script src="battle.js"></script>
 <script src="cosmic.js"></script>
 <script>boot();
-if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+// アプリに戻ってきたときも新しい版がないか確認し、入れ替わったら「タップで更新」を出す
+if('serviceWorker' in navigator){
+  const hadController=!!navigator.serviceWorker.controller;
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      const check=()=>reg.update().catch(()=>{});
+      document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') check(); });
+      setInterval(check,5*60*1000);
+    }).catch(()=>{});
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadController || document.getElementById('updBar')) return;
+    const b=document.createElement('button'); b.id='updBar'; b.className='updbar';
+    b.textContent='新しいバージョンがあります。タップで更新（セーブは消えません）';
+    b.onclick=()=>location.reload(); document.body.appendChild(b);
+  });
+}
 </script>
 
 </body>
