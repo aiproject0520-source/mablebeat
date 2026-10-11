@@ -1,5 +1,5 @@
 // 新しい版があればネットから取り、オフラインのときだけキャッシュを使う
-const VERSION = 'marblebeat-v15';
+const VERSION = 'marblebeat-v16';
 const FILES = ['./','index.html','units.js','story1.js','story2.js','engine.js','battle.js','cosmic.js','manifest.json',
   'icon-180.png','icon-192.png','icon-512.png','icon-512-maskable.png'];
 self.addEventListener('install', e => {

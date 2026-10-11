@@ -65,6 +65,9 @@ h1,h2,h3{font-family:var(--ui);font-weight:400;margin:0;text-wrap:balance}
 .hubhead{display:flex;justify-content:space-between;align-items:flex-end;gap:8px}
 .hubhead h2{font-size:20px}
 .hubbody{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-block:10px;min-height:0}
+/* メニューの項目は縮めずに、入りきらない分はスクロールで見せる */
+.hubbody>*,.ov .body>*,.list>*{flex-shrink:0}
+.story-btn small{line-height:1.5}
 .story-btn{border-color:var(--yellow);color:var(--chalk);flex-direction:column;align-items:flex-start;gap:4px;padding:14px}
 .story-btn .big{font-size:20px;color:var(--yellow)}
 .mini-party{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
