@@ -1,6 +1,6 @@
 // 新しい版があればネットから取り、オフラインのときだけキャッシュを使う。
 // GitHub Pages はファイルを10分ほどブラウザに保存させるので、毎回サーバーに「変わった？」と確認しにいく（cache:'no-cache'）
-const VERSION = 'marblebeat-v17';
+const VERSION = 'marblebeat-v18';
 const FILES = ['./','index.html','units.js','story1.js','story2.js','engine.js','battle.js','cosmic.js','manifest.json',
   'icon-180.png','icon-192.png','icon-512.png','icon-512-maskable.png'];
 self.addEventListener('install', e => {

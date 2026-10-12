@@ -5,7 +5,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const rnd = (a,b)=>a+Math.random()*(b-a);
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
-const APP_VERSION='v17';
+const APP_VERSION='v18';
 let FAST=false, SOUND=true, TAPMODE=true, AC=null;
 try{ const o=JSON.parse(localStorage.getItem('marblebeat_opt')||'{}'); if('fast' in o)FAST=o.fast; if('sound' in o)SOUND=o.sound; if('tap' in o)TAPMODE=o.tap; }catch(e){}
 function saveOpt(){ try{ localStorage.setItem('marblebeat_opt',JSON.stringify({fast:FAST,sound:SOUND,tap:TAPMODE})); }catch(e){} }
